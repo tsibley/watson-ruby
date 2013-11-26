@@ -26,6 +26,7 @@ module Watson
       _flag_list = ["-c", "--context-depth",
                     "-d", "--dirs",
                     "-f", "--files",
+                    "--format",
                     "-h", "--help",
                     "-i", "--ignore",
                     "-p", "--parse-depth",
@@ -114,6 +115,10 @@ module Watson
           debug_print "Found -f/--files argument\n"
           set_files(_flag_args)
 
+        when "--format"
+          debug_print "Found --format argument\n"
+          set_output_format(_flag_args)
+
         when "-i", "--ignore"
           debug_print "Found -i/--ignore argument\n"
           set_ignores(_flag_args)
@@ -174,10 +179,12 @@ module Watson
          -c, --context-depth   number of lines of context to provide with posted issue
          -d, --dirs            list of directories to search in
          -f, --files           list of files to search in
+         --format              set output format for watson [print, json, silent]
          -h, --help            print help
          -i, --ignore          list of files, directories, or types to ignore
          -p, --parse-depth     depth to recursively parse directories
          -r, --remote          list / create tokens for Bitbucket/GitHub
+         -s, --show            whether to show [all, clean, dirty] files
          -t, --tags            list of tags to search for
          -u, --update          update remote repos with current issues
          -v, --version      print watson version and info
@@ -319,6 +326,43 @@ module Watson
       end
 
       debug_print "Updated files: #{ @config.file_list }\n"
+      return true
+    end
+
+
+    ###########################################################
+    # set_output_format
+    # Set format watson should output in
+    def set_output_format(args)
+
+      # Identify method entry
+      debug_print "#{ self } : #{ __method__ }\n"
+
+      # Need at least one file in args
+      if args.length <= 0
+        debug_print "No args passed, exiting\n"
+        return false
+      end
+
+      # This should be a single value, either print(default), json, or silent
+      # If they pass more, just take the last valid value
+      args.each do | _format |
+        case _format.downcase
+        when 'json'
+          debug_print "Setting config output_format to #{ _format }\n"
+          @config.output_format = 'json'
+
+        when 'silent'
+          debug_print "Setting config output_format #{ _format }\n"
+
+        else
+          debug_print "Setting config output_format to print\n"
+          @config.output_format = 'print'
+        end
+
+      end
+
+      debug_print "Updated output_format to: #{ @config.output_format }\n"
       return true
     end
 

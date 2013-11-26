@@ -35,7 +35,9 @@ module Watson
 
     # Entries that watson should show
     attr_accessor :show_type
-    
+    # Format that watson should output in
+    attr_accessor :output_format
+
     # Flag for whether less is avaliable to print results
     attr_reader   :use_less
     # Flag for where the temp file for printing is located
@@ -89,7 +91,9 @@ module Watson
       @cl_tag_set   = false
       @cl_ignore_set  = false
 
+      # Runtime settings
       @show_type = 'all'
+      @output_format = 'print'
 
       # System flags
       # [todo] - Add option to save output to file also

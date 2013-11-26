@@ -100,8 +100,24 @@ module Watson
 
 
     ###########################################################
-    # Take parsed structure and print out in specified formatting
+    # Run controller dispatches to corresponding print method from config
     def run(structure)
+
+      # Identify method entry
+      debug_print "#{ self } : #{ __method__ }\n"
+
+      # [review] - Set structure as class member instead of passing again below?
+      run_print(structure) if @config.output_format == 'print'
+      run_json(structure)  if @config.output_format == 'json'
+      # Do nothing if silent
+
+      return true
+    end
+
+
+    ###########################################################
+    # Take parsed structure and print out in specified formatting
+    def run_print(structure)
 
       # Identify method entry
       debug_print "#{ self } : #{ __method__ }\n"
@@ -111,6 +127,8 @@ module Watson
       # Else, just print out to STDOUT
       if @config.use_less
         debug_print "Unix less avaliable, setting output to #{ @config.tmp_file }\n"
+        # Since we don't delete the JSON file after running, check for tmp and delete
+        File.delete(@config.tmp_file) if File.exists?(@config.tmp_file)
         @output = File.open(@config.tmp_file, 'w')
       else
         debug_print "Unix less is unavaliable, setting output to STDOUT\n"
@@ -133,6 +151,37 @@ module Watson
         debug_print "File displayed with less, now deleting...\n"
         File.delete(@config.tmp_file)
       end
+
+      return true
+    end
+
+
+    ###########################################################
+    # Take parsed structure and generate JSON output
+    def run_json(structure)
+
+      # Identify method entry
+      debug_print "#{ self } : #{ __method__ }\n"
+
+      # [fix] - Add failure check on open
+      debug_print "Printing JSON otuput to file, setting output to #{ @config.tmp_file }\n"
+
+      # Since we don't delete the JSON file after running, check for tmp and delete
+      File.delete(@config.tmp_file) if File.exists?(@config.tmp_file)
+      @output = File.open(@config.tmp_file, 'w')
+
+      # Write beginning of JSON output
+      @output.write("{\n")
+      @output.write("\"result\": [\n")
+
+      # Print out structure that was passed to this Printer
+      debug_print "Starting structure printing\n"
+      print_structure(structure)
+
+      # Write end of JSON output, close file
+      @output.write("\n]")
+      @output.write("\n}")
+      @output.close
 
       return true
     end
@@ -203,7 +252,8 @@ module Watson
       # The current "structure" should reflect a dir/subdir
       structure[:files].each do | _file |
         debug_print "Printing info for #{ _file }\n"
-        print_entry(_file)
+        print_entry(_file) if @config.output_format == 'print'
+        print_json(_file)  if @config.output_format == 'json'
       end
 
       # Next go through all the subdirs and pass them to print_structure
@@ -293,6 +343,73 @@ module Watson
         cprint "\n"
       end
     end
+
+
+    ###########################################################
+    # Individual JSON printer
+    # Uses issue hash to format JSON output
+    def print_json(entry)
+
+      # Identify method entry
+      debug_print "#{ self } : #{ __method__ }\n"
+
+      # If no issues for this file, return
+      return true if !entry[:has_issues]
+
+      # Use with_index to keep track of where commas should go
+      @config.tag_list.each_with_index do | _tag, _tag_index |
+        debug_print "Checking for #{ _tag }\n"
+
+        # Skip empty tags
+        if entry[_tag].size.zero?
+          debug_print "#{ _tag } has no issues, skipping\n"
+          next
+        end
+
+        debug_print "#{ _tag } has issues in it, print!\n"
+
+        # Go through each issue in tag use index for comma placement
+        entry[_tag].each_with_index do | _issue, _issue_index |
+
+          # Check to see if it has been resolved on GitHub/Bitbucket
+          # Add key for resolved status to hash
+          debug_print "Checking if issue has been resolved\n"
+
+          _issue['github_resolved'] = false
+          @config.github_issues[:closed].each do | _closed |
+            if _closed["body"].include?(_issue[:md5])
+              debug_print "Found issue in in #{ _closed[:comment] }\n"
+              _issue['github_resolved'] = true
+            else
+              debug_print "Did not find in #{ _closed[:comment] }\n"
+            end
+          end
+
+          debug_print "Checking if issue has been resolved\n"
+
+          _issue['bitbucket_resolved'] = false
+          @config.bitbucket_issues[:closed].each do  | _closed |
+            if _closed["content"].include?(_issue[:md5])
+              debug_print "Found in #{ _closed["content"] }, not posting\n"
+              _issue['bitbucket_resolved'] = true
+            else
+              debug_print "Did not find in #{ _closed["title"] }\n"
+            end
+          end
+
+          # [fix] - pp puts newline after print so ',' occurs after, looks ugly
+          #         Although I doubt anyone will be reading this file in plain text...
+
+          # Print JSON to file, use PP because its prettier, print comma if not last issue in tag
+          PP.pp(_issue, @output)
+          @output.write(", ") if _issue_index + 1 != entry[_tag].length
+
+      end
+
+      # Print comma if not last tag
+      @output.write(", ") if _tag_index + 1 != @config.tag_list.length
+    end
+  end
 
   end
 end
