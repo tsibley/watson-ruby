@@ -159,7 +159,7 @@ module Watson
         end
 
         # Add directory to ignore list so it isn't repeated again accidentally
-        @config.ignore_list.push(_entry)
+        @config.ignore_list.push(File.absolute_path(_entry))
       end
 
 
@@ -202,7 +202,6 @@ module Watson
         debug_print "Using default (#) comment type\n"
         _comment_type = ['#']
       end
-
       # Escape out comment type for safety
       # [review] - Is there a way to do inplace join?
       _comment_type = _comment_type.map { |comment| Regexp.escape(comment) }.join("|")
@@ -211,6 +210,8 @@ module Watson
       # [review] - It is possible to embed the valid tags in the regexp,
       # with a ~5% performance gain, but this would loose the warning about
       # unrecognized tags.
+      # [todo] [bug] - _comment_type is interpolated as [//|/\*] for C, etc.  This is a totally bogus alternation.
+      # [todo] - support XXX as a marker, with any words between XXX and colon as other tags
       _comment_regex = /^[[#{ _comment_type }]+?\s+?]+\[(\w+)\]\s+-\s+(.+)/
 
 
